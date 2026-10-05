@@ -1,7 +1,7 @@
 # GSB Anon
 
 Anonymous posting board gated to `@gsb.columbia.edu` email addresses. Next.js
-(App Router) + Supabase (Postgres, Auth via email OTP, Row-Level Security).
+(App Router) + Supabase (Postgres, Auth via magic link, Row-Level Security).
 
 Every account gets a random pseudonym (`anon_x7f3k`) on signup. Posts and
 comments only ever show the pseudonym — the real email is never stored
@@ -28,20 +28,19 @@ RLS policies, and a trigger that rejects any signup whose email isn't
 `@gsb.columbia.edu` (this is a second, server-side check — the app itself
 also blocks non-GSB emails before ever calling Supabase).
 
-## 3. Switch the auth email to a one-time code
+## 3. Allow the local callback URL
 
-By default Supabase's email templates send a magic *link*. This app uses a
-6-digit *code* instead (easier on mobile, no email-scanning-bot false
-triggers). In the dashboard:
+The app uses Supabase's default magic-link email (click a link, no code to
+type). The link redirects back to `/auth/callback` in this app, so that URL
+needs to be on Supabase's allowlist:
 
-- **Authentication → Email Templates → Magic Link** — make sure the template
-  includes `{{ .Token }}` (Supabase's default template already does).
-- **Authentication → Providers → Email** — confirm "Email OTP" / email
-  provider is enabled (it is, by default).
+- **Authentication → URL Configuration → Redirect URLs** — add
+  `http://localhost:3000/auth/callback` (and later, your production URL's
+  `/auth/callback` once deployed).
 
-No other auth config is required — `signInWithOtp` + `verifyOtp` in
-[`src/app/login/LoginForm.tsx`](src/app/login/LoginForm.tsx) handles the
-code-based flow end to end.
+`signInWithOtp` in [`src/app/login/LoginForm.tsx`](src/app/login/LoginForm.tsx)
+sends the link; [`src/app/auth/callback/route.ts`](src/app/auth/callback/route.ts)
+exchanges it for a signed-in session when the student clicks it.
 
 > Supabase's built-in email sender is rate-limited (a handful of emails per
 > hour) — fine for testing, not for a real launch. Before opening this up to
